@@ -8,7 +8,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 from torchvision import transforms
 from torch.utils.data import DataLoader
-import cv2
 
 import os
 import numpy as np
@@ -42,6 +41,7 @@ def create_dataloader(resize_size, batch_size=4,transform_mean=[0.485, 0.456, 0.
 
     # Create datasets and dataloaders
     train_dataset = BrainData(train_images, train_annotations, train_img_dir, image_transform=image_transform,mask_transform=mask_transform) 
+    train_dataset.plot(0)
     val_dataset = BrainData(val_images, val_annotations, val_img_dir, image_transform=image_transform,mask_transform=mask_transform)
     train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
     val_dataloader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
@@ -78,7 +78,6 @@ class BrainData(Dataset):
         
    # Create an empty mask
         mask = Image.new('L', (img_info['width'], img_info['height']), 0)
-
         draw = ImageDraw.Draw(mask)
         
         # Fill the mask with the segmentation annotations
@@ -125,13 +124,13 @@ class BrainData(Dataset):
             
             # Draw the bounding box on the image
             img_with_box = img.copy()
-            cv2.rectangle(img_with_box, (x_min, y_min), (x_max, y_max), (255, 0, 0), 2)  # Red box
+            img_with_box = Image.fromarray(img_with_box)
+            draw = ImageDraw.Draw(img_with_box)
+            draw.rectangle([x_min, y_min, x_max, y_max], outline="red", width=2)
+            
+            #cv2.rectangle(img_with_box, (x_min, y_min), (x_max, y_max), (255, 0, 0), 2)  # Red box
             
             # Overlay the mask on the image
-            red_overlay = np.zeros_like(img)
-            red_overlay[..., 0] = 255  # Red channel
-            alpha = np.zeros_like(mask, dtype=np.float32)
-            alpha[mask > 0] = 0.3  # Adjust transparency here (0.3 for 30% transparency)
             
             # Plot the image with the red overlay and bounding box
             plt.figure(figsize=(10, 5))
