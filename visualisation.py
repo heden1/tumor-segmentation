@@ -51,33 +51,27 @@ def save_model_to_file(metrics,  filename):
 
 # Example of creating and initialising model with a previously saved state dict:
 def get_model_and_performance_metrics(filename,model_class):
-
-    checkpoint = torch.load(filename)
-    model_class.load_state_dict(checkpoint["model_state_dict"])
-
-    return model_class, checkpoint["train_losses"], checkpoint["train_accs"], checkpoint["val_losses"], checkpoint["val_accs"]
-
-
-def get_model_and_performance_metrics(filename, model_class):
-    checkpoint = torch.load(filename)
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    checkpoint = torch.load(filename, map_location=device)
     model_class.load_state_dict(checkpoint["model_state_dict"])
     return model_class, checkpoint["train_losses"], checkpoint["train_accs"], checkpoint["val_losses"], checkpoint["val_accs"]
 
-def plot_segmentation(image, mask, model, threshold=0.5):
+def get_prediction(model,image,threshold=0.5):
     """Plot the segmentation mask overlayed on the image"""
-    # Set model to evaluation
     model.eval()
-    
-    # Move image to device
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     image = image.to(device).unsqueeze(0)  # Add batch dimension
-    
+
     # Make prediction
     with torch.no_grad():
         output = model(image)
-        pred_mask = torch.sigmoid(output) > threshold  # Apply sigmoid and threshold
-    
-    # Convert tensors to numpy arrays for visualization
+        pred_mask = (output) > threshold  # Apply and threshold
+        return pred_mask
+
+
+
+def plot_segmentation(image, mask, model, threshold=0.5):
+    pred_mask= get_prediction(model,image,threshold)
 
     image = image.squeeze(0).cpu().numpy().transpose(1, 2, 0)
     mask = mask.squeeze(0).cpu().numpy()
@@ -119,8 +113,52 @@ def plot_segmentation(image, mask, model, threshold=0.5):
 
 def plot_comparison(idx, dataset, model, threshold=0.5):
     """Plot comparison between the ground truth mask and the model's prediction"""
-    image, mask = dataset[idx]
+    for i in idx:
+        image, mask = dataset[i]
+        plot_segmentation(image, mask, model, threshold)
+
+
+
+# Example usage
+if __name__ == "__main__":
+    import preprocessing
+    from preprocessing import create_dataloader
+    model = torch.hub.load('mateuszbuda/brain-segmentation-pytorch', 'unet',
+    in_channels=3, out_channels=1, init_features=32, pretrained=True)
+
+
+
+    # Load the model and performance metrics
+    trained_metrics = get_model_and_performance_metrics("unet_brain_seg.pth", model)
+    model, train_losses, train_accs, val_losses, val_accs = trained_metrics
+ 
+    # Create the dataloaders
+    resize_size = (224, 224)
+    train_loader, val_loader = create_dataloader(resize_size)
     
-    # Plot the segmentation
-    plot_segmentation(image, mask, model, threshold)
+    # Get the validation dataset
+    val_dataset = val_loader.dataset
+    #img,mask=val_dataset[0]
+
+    #plot img 
+    
+    #plt.imshow(img.squeeze(0).permute(1,2,0))
+    #plt.show()
+    ''''
+    pred=get_prediction(model,img).squeeze(0).squeeze(0).cpu().numpy().astype(int)
+    print(pred.shape)
+    print(pred.mean())
+    
+
+    # Plot the prediction
+    plt.imshow(pred, cmap='gray')
+    plt.title("Predicted Mask")
+    plt.axis('off')
+    plt.show()
+    '''
+    
+    # Plot comparison for a specific index
+    plot_comparison([0], val_dataset, model)
+
+
 
