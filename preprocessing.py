@@ -98,7 +98,6 @@ class BrainData(Dataset):
         if  self.mask_transform:
             mask = self.mask_transform(mask)
             mask = mask # Remove the channel dimension and convert to long
-        
         return image, mask
     
     def get_img_info(self, idx):
@@ -140,53 +139,3 @@ class BrainData(Dataset):
         else:
             print("No ones found in the mask.")
 
-
-
-
-
-
-
-
-# Example usage
-if __name__ == "__main__":
-    # Define dummy data for testing
-    images = {
-        1: {'file_name': 'dummy_image.png', 'width': 256, 'height': 256}
-    }
-    annotations = [
-        {'image_id': 1, 'segmentation': [[50, 50, 200, 50, 200, 200, 50, 200]]}
-    ]
-    img_dir = 'dummy_dir'
-    
-    # Create a dummy image file for testing
-    os.makedirs(img_dir, exist_ok=True)
-    dummy_image_path = os.path.join(img_dir, 'dummy_image.png')
-    dummy_image = Image.new('RGB', (256, 256), color='white')
-    dummy_image.save(dummy_image_path)
-    
-    # Define transformations
-    image_transform = transforms.Compose([
-        transforms.Resize((256, 256)),
-        transforms.ToTensor(),
-        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-    ])
-    
-    mask_transform = transforms.Compose([
-        transforms.Resize((256, 256)),
-        transforms.ToTensor()
-    ])
-    
-    # Create an instance of the dataset
-    dataset = BrainData(images, annotations, img_dir, image_transform=image_transform, mask_transform=mask_transform)
-    
-    # Get the first item from the dataset
-    image, mask = dataset[0]
-    
-    # Plot the image and mask
-    import matplotlib.pyplot as plt
-    fig, ax = plt.subplots(1, 2, figsize=(12, 6))
-    ax[0].imshow(image.permute(1, 2, 0).numpy())
-    ax[0].set_title('Image')
-    ax[1].imshow(mask.squeeze().numpy(), cmap='gray')
-    ax[1].set_title('Mask')
-    plt.show()
