@@ -41,7 +41,6 @@ def create_dataloader(resize_size, batch_size=4,transform_mean=[0.485, 0.456, 0.
 
     # Create datasets and dataloaders
     train_dataset = BrainData(train_images, train_annotations, train_img_dir, image_transform=image_transform,mask_transform=mask_transform) 
-    train_dataset.plot(0)
     val_dataset = BrainData(val_images, val_annotations, val_img_dir, image_transform=image_transform,mask_transform=mask_transform)
     train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
     val_dataloader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
@@ -98,7 +97,9 @@ class BrainData(Dataset):
         if  self.mask_transform:
             mask = self.mask_transform(mask)
             mask = mask # Remove the channel dimension and convert to long
+        mask[mask>0]=1
         return image, mask
+    
     
     def get_img_info(self, idx):
         img_id = self.image_ids[idx]

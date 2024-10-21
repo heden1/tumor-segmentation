@@ -95,7 +95,7 @@ def plot_segmentation(image, mask, model, threshold=0.5):
 
     # Create an alpha channel for the mask
     alpha_mask = np.zeros_like(mask, dtype=np.float32)
-    mask[mask > 0] = 1
+    #mask[mask > 0] = 1
 
 
     alpha_mask[mask > 0] = 0.5  # Adjust transparency here (0.5 for 50% transparency)

@@ -8,8 +8,9 @@ def training_loop(
     model, optimizer, loss_fn, train_loader, val_loader, num_epochs=10):
     print("Starting training")
     device = torch.device("cuda" if torch.cuda.is_available() else ("mps" if torch.backends.mps.is_available() else "cpu"))
+    print(f"Training on device {device}")
     model.to(device)
-    train_losses, train_accs, val_losses, val_accs = [], [], [], []
+    train_losses, train_accs, val_losses, val_accs ,train_f1s, val_f1s= [], [], [], [], [],[]
     for epoch in range(1,num_epochs+1):
         model, train_loss, train_acc, train_f1 = train_epoch(model,train_loader, loss_fn,optimizer, device)
         val_loss, val_acc,val_f1 = validate(model, loss_fn, val_loader, device)
@@ -24,9 +25,11 @@ def training_loop(
         )
         train_losses.extend(train_loss)
         train_accs.extend(train_acc)
+        train_f1s.extend(train_f1)
         val_losses.append(val_loss)
         val_accs.append(val_acc)
-    return model, train_losses, train_f1, val_losses, val_f1
+        val_f1s.append(val_f1)
+    return model, train_losses, train_f1s, val_losses, val_f1s
 
 def train_epoch(model,train_loader, loss_fn,optimizer, device):
         model.train()
@@ -35,6 +38,7 @@ def train_epoch(model,train_loader, loss_fn,optimizer, device):
         for images, masks in tqdm(train_loader):
             images = images.to(device)
             masks = masks.to(device)
+            masks[masks>0]=1
             
             # Zero the parameter gradients
             optimizer.zero_grad()
