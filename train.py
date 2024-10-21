@@ -26,7 +26,7 @@ def training_loop(
         train_accs.extend(train_acc)
         val_losses.append(val_loss)
         val_accs.append(val_acc)
-    return model, train_losses, train_accs, val_losses, val_accs
+    return model, train_losses, train_f1, val_losses, val_f1
 
 def train_epoch(model,train_loader, loss_fn,optimizer, device):
         model.train()
