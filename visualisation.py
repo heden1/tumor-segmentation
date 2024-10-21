@@ -124,20 +124,3 @@ def plot_comparison(idx, dataset, model, threshold=0.5):
     # Plot the segmentation
     plot_segmentation(image, mask, model, threshold)
 
-# Example usage
-if __name__ == "__main__":
-    from preprocessing import create_dataloaders
-    from unet import UNet  # Assuming you have a UNet class defined in unet.py
-    
-    # Load the model and performance metrics
-    model, train_losses, train_accs, val_losses, val_accs = get_model_and_performance_metrics("model_checkpoint.pth", UNet())
-    
-    # Create the dataloaders
-    resize_size = (224, 224)
-    train_loader, val_loader = create_dataloaders(resize_size)
-    
-    # Get the validation dataset
-    val_dataset = val_loader.dataset
-    
-    # Plot comparison for a specific index
-    plot_comparison(0, val_dataset, model)
