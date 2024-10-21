@@ -138,27 +138,7 @@ if __name__ == "__main__":
     
     # Get the validation dataset
     val_dataset = val_loader.dataset
-    #img,mask=val_dataset[0]
-
-    #plot img 
-    
-    #plt.imshow(img.squeeze(0).permute(1,2,0))
-    #plt.show()
-    ''''
-    pred=get_prediction(model,img).squeeze(0).squeeze(0).cpu().numpy().astype(int)
-    print(pred.shape)
-    print(pred.mean())
-    
-
-    # Plot the prediction
-    plt.imshow(pred, cmap='gray')
-    plt.title("Predicted Mask")
-    plt.axis('off')
-    plt.show()
-    '''
-    
-    # Plot comparison for a specific index
-    plot_comparison([0], val_dataset, model)
+    plot_comparison([3], val_dataset, model)
 
 
 
