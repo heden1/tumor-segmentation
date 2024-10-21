@@ -7,7 +7,7 @@ from sklearn.metrics import f1_score
 def training_loop(
     model, optimizer, loss_fn, train_loader, val_loader, num_epochs=10):
     print("Starting training")
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cuda" if torch.cuda.is_available() else ("mps" if torch.backends.mps.is_available() else "cpu"))
     model.to(device)
     train_losses, train_accs, val_losses, val_accs = [], [], [], []
     for epoch in range(1,num_epochs+1):
