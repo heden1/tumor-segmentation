@@ -32,16 +32,16 @@ def plot_performance_metrics(performance_metrics, label=None,batch_size=16 ):
         ax1.legend()
 
         if label is not None:
-            ax2.plot(x_step_train, train_accs, label=f'Train Accuracy {label[model_i]}', alpha=0.5)
-            ax2.plot(x_step_val, val_accs, label=f'Validation Accuracy {label[model_i]}')
-            ax2.plot(x_step_train_avg, train_accs_avg, label=f'Train Accuracy (Avg) {label[model_i]}', linestyle='--')
+            ax2.plot(x_step_train, train_accs, label=f'Train F1 score {label[model_i]}', alpha=0.5)
+            ax2.plot(x_step_val, val_accs, label=f'Validation F1 score {label[model_i]}')
+            ax2.plot(x_step_train_avg, train_accs_avg, label=f'Train F1 score (Avg) {label[model_i]}', linestyle='--')
         else:
-            ax2.plot(x_step_train, train_accs, label=f'Train Accuracy {model_i}', alpha=0.5)
-            ax2.plot(x_step_val, val_accs, label=f'Validation Accuracy {model_i}')
-            ax2.plot(x_step_train_avg, train_accs_avg, label=f'Train Accuracy (Avg) {model_i}', linestyle='--')
+            ax2.plot(x_step_train, train_accs, label=f'Train F1 score{model_i}', alpha=0.5)
+            ax2.plot(x_step_val, val_accs, label=f'Validation F1 score {model_i}')
+            ax2.plot(x_step_train_avg, train_accs_avg, label=f'Train F1 score (Avg) {model_i}', linestyle='--')
         ax2.set_xlabel('Epoch')
-        ax2.set_ylabel('Accuracy')
-        ax2.set_title('Training Accuracy Over Time')
+        ax2.set_ylabel('F1 Score')
+        ax2.set_title('Training F1 Score Over Time')
         ax2.legend()
 
     plt.show()
@@ -61,7 +61,7 @@ def save_model_to_file(metrics,  filename):
 
 # Example of creating and initialising model with a previously saved state dict:
 def get_model_and_performance_metrics(filename,model_class):
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cuda" if torch.cuda.is_available() else ("mps" if torch.backends.mps.is_available() else "cpu"))
     checkpoint = torch.load(filename, map_location=device)
     model_class.load_state_dict(checkpoint["model_state_dict"])
     return model_class, checkpoint["train_losses"], checkpoint["train_accs"], checkpoint["val_losses"], checkpoint["val_accs"]
@@ -69,7 +69,7 @@ def get_model_and_performance_metrics(filename,model_class):
 def get_prediction(model,image,threshold=0.5):
     """Plot the segmentation mask overlayed on the image"""
     model.eval()
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cuda" if torch.cuda.is_available() else ("mps" if torch.backends.mps.is_available() else "cpu"))
     image = image.to(device).unsqueeze(0)  # Add batch dimension
 
     # Make prediction
@@ -95,10 +95,12 @@ def plot_segmentation(image, mask, model, threshold=0.5):
 
     # Create an alpha channel for the mask
     alpha_mask = np.zeros_like(mask, dtype=np.float32)
+    mask[mask > 0] = 1
+
+
     alpha_mask[mask > 0] = 0.5  # Adjust transparency here (0.5 for 50% transparency)
     
     alpha_pred_mask = np.zeros_like(pred_mask, dtype=np.float32)
-    print(alpha_pred_mask.max())
     alpha_pred_mask[pred_mask > 0] = 0.5  # Adjust transparency here (0.5 for 50% transparency)
     
     # Plot the original image,
