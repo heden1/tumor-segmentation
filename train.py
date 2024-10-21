@@ -1,6 +1,8 @@
 import torch
 from tqdm import tqdm 
 import numpy as np
+from sklearn.metrics import f1_score
+
 
 def training_loop(
     model, optimizer, loss_fn, train_loader, val_loader, num_epochs=10):
@@ -14,9 +16,9 @@ def training_loop(
         print(
             f"Epoch {epoch}/{num_epochs}: "
             f"Train loss: {sum(train_loss)/len(train_loss):.3f}, "
-            f"Train acc.: {sum(train_acc)/len(train_acc):.3f}, "
+            f"Train f1.: {sum(train_acc)/len(train_acc):.3f}, "
             f"Val. loss: {val_loss:.3f}, "
-            f"Val. acc.: {val_acc:.3f}"
+            f"Val. f1.: {val_acc:.3f}"
         )
         train_losses.extend(train_loss)
         train_accs.extend(train_acc)
@@ -43,12 +45,78 @@ def train_epoch(model,train_loader, loss_fn,optimizer, device):
             train_loss_batches.append(loss.item())
             loss.backward()
             optimizer.step()
-            train_acc_batches.append(calculate_accuracy(outputs, masks))    
+            train_acc_batches.append(calculate_f1(outputs, masks))    
         return  model, train_loss_batches, train_acc_batches
 
 def calculate_accuracy(outputs, masks):
     hard_preds = (outputs > 0.5)
     return (hard_preds == masks).float().mean().item()
+
+def calculate_f1(preds, targets, threshold=0.5):
+    """
+    Calculates the F1 score per batch for an image segmentation task using sklearn.
+
+    Args:
+        preds (torch.Tensor): The predicted output from the model. Shape: (batch_size, height, width).
+        targets (torch.Tensor): The ground truth labels. Shape: (batch_size, height, width).
+        threshold (float): Threshold to convert logits/probabilities to binary predictions.
+
+    Returns:
+        f1_score (float): The F1 score for the batch.
+    """
+    
+    # Convert logits or probabilities to binary predictions (foreground vs background)
+    preds = (preds > threshold).float()
+    
+    
+    # Flatten the tensorss
+    preds = preds.view(-1).cpu().numpy().astype(int)
+
+    targets = targets.view(-1).cpu().numpy().astype(int)
+    
+    # Calculate F1 score using sklearn
+
+    return f1_score(targets, preds, average='binary')
+
+def calculate_f11(preds, targets, threshold=0.5, epsilon=1e-7):
+    """
+    Calculates the F1 score per batch for an image segmentation task.
+
+    Args:
+        preds (torch.Tensor): The predicted output from the model. Shape: (batch_size, height, width).
+        targets (torch.Tensor): The ground truth labels. Shape: (batch_size, height, width).
+        threshold (float): Threshold to convert logits/probabilities to binary predictions.
+        epsilon (float): Small constant to avoid division by zero.
+
+    Returns:
+        f1_score (float): The F1 score for the batch.
+    """
+    
+    # Convert logits or probabilities to binary predictions (foreground vs background)
+    preds = (preds > threshold).float()
+    
+    # Calculate True Positives, False Positives, False Negatives
+    TP = (preds * targets).sum(dim=(1, 2))  # True Positives per batch
+    FP = (preds * (1 - targets)).sum(dim=(1, 2))  # False Positives per batch
+    FN = ((1 - preds) * targets).sum(dim=(1, 2))  # False Negatives per batch
+
+    # Precision, Recall
+    precision = TP / (TP + FP + epsilon)
+    recall = TP / (TP + FN + epsilon)
+    
+    # F1 Score
+    f1_score = 2 * (precision * recall) / (precision + recall + epsilon)
+    #espilon is to not divide with 0 
+    # Return average F1 score over the batch
+    return f1_score.mean().item()
+
+def calculate_f12(outputs, masks, threshold=0.5):
+    # Apply threshold to convert outputs to binary
+    hard_preds = (torch.sigmoid(outputs) > threshold).cpu().numpy().flatten()
+    masks = masks.cpu().numpy().flatten()
+    print(type(hard_preds))
+    print(type(masks))
+    return f1_score(masks, hard_preds, average='binary')
 
 
 def validate(model, loss_fn, val_loader, device):
@@ -61,7 +129,8 @@ def validate(model, loss_fn, val_loader, device):
             z = model.forward(inputs)
             batch_loss = loss_fn(z, labels)
             val_loss_cum += batch_loss.item()
-            acc_batch_avg=calculate_accuracy(z, labels)
+
+            acc_batch_avg=calculate_f1(z, labels)
             val_acc_cum += acc_batch_avg
     return val_loss_cum / len(val_loader), val_acc_cum / len(val_loader)
 
