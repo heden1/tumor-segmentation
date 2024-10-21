@@ -11,14 +11,16 @@ def training_loop(
     model.to(device)
     train_losses, train_accs, val_losses, val_accs = [], [], [], []
     for epoch in range(1,num_epochs+1):
-        model, train_loss, train_acc = train_epoch(model,train_loader, loss_fn,optimizer, device)
-        val_loss, val_acc = validate(model, loss_fn, val_loader, device)
+        model, train_loss, train_acc, train_f1 = train_epoch(model,train_loader, loss_fn,optimizer, device)
+        val_loss, val_acc,val_f1 = validate(model, loss_fn, val_loader, device)
         print(
             f"Epoch {epoch}/{num_epochs}: "
             f"Train loss: {sum(train_loss)/len(train_loss):.3f}, "
-            f"Train f1.: {sum(train_acc)/len(train_acc):.3f}, "
+            f"Train f1.: {sum(train_f1)/len(train_f1):.3f}, "
+            f"Train accuracy: {sum(train_acc)/len(train_acc):.3f}, "
             f"Val. loss: {val_loss:.3f}, "
-            f"Val. f1.: {val_acc:.3f}"
+            f"Val. f1.: {val_f1:.3f}"
+            f" Val. accuracy: {val_acc:.3f}"
         )
         train_losses.extend(train_loss)
         train_accs.extend(train_acc)
@@ -29,7 +31,7 @@ def training_loop(
 def train_epoch(model,train_loader, loss_fn,optimizer, device):
         model.train()
         epoch_loss = 0
-        train_loss_batches, train_acc_batches = [], []
+        train_loss_batches, train_acc_batches , train_f1_batches= [], [], []
         for images, masks in tqdm(train_loader):
             images = images.to(device)
             masks = masks.to(device)
@@ -45,8 +47,9 @@ def train_epoch(model,train_loader, loss_fn,optimizer, device):
             train_loss_batches.append(loss.item())
             loss.backward()
             optimizer.step()
-            train_acc_batches.append(calculate_f1(outputs, masks))    
-        return  model, train_loss_batches, train_acc_batches
+            train_f1_batches.append(calculate_f1(outputs, masks))  
+            train_acc_batches.append(calculate_accuracy(outputs, masks))  
+        return  model, train_loss_batches, train_acc_batches,train_f1_batches
 
 def calculate_accuracy(outputs, masks):
     hard_preds = (outputs > 0.5)
@@ -122,6 +125,7 @@ def calculate_f12(outputs, masks, threshold=0.5):
 def validate(model, loss_fn, val_loader, device):
     val_loss_cum = 0
     val_acc_cum = 0
+    val_f1_cum = 0
     model.eval()
     with torch.no_grad():
         for batch_index, (x, y) in enumerate(val_loader, 1):
@@ -129,8 +133,11 @@ def validate(model, loss_fn, val_loader, device):
             z = model.forward(inputs)
             batch_loss = loss_fn(z, labels)
             val_loss_cum += batch_loss.item()
+            
+            acc_batch_avg = calculate_accuracy(z, labels)
+            f1_batch_avg=calculate_f1(z, labels)
+            val_f1_cum += f1_batch_avg
+            val_acc_cum+=acc_batch_avg
 
-            acc_batch_avg=calculate_f1(z, labels)
-            val_acc_cum += acc_batch_avg
-    return val_loss_cum / len(val_loader), val_acc_cum / len(val_loader)
+    return val_loss_cum / len(val_loader) ,val_acc_cum / len(val_loader),val_f1_cum / len(val_loader)
 
