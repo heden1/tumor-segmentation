@@ -29,6 +29,13 @@ def training_loop(
         val_losses.append(val_loss)
         val_accs.append(val_acc)
         val_f1s.append(val_f1)
+
+        if early_stopping(val_losses):
+            print("Early stopping")
+            break
+
+
+
     return model, train_losses, train_f1s, val_losses, val_f1s
 
 def train_epoch(model,train_loader, loss_fn,optimizer, device):
@@ -38,7 +45,7 @@ def train_epoch(model,train_loader, loss_fn,optimizer, device):
         for images, masks in tqdm(train_loader):
             images = images.to(device)
             masks = masks.to(device)
-            masks[masks>0]=1
+            #masks[masks>0]=1
             
             # Zero the parameter gradients
             optimizer.zero_grad()
@@ -55,6 +62,14 @@ def train_epoch(model,train_loader, loss_fn,optimizer, device):
             train_acc_batches.append(calculate_accuracy(outputs, masks))  
         return  model, train_loss_batches, train_acc_batches,train_f1_batches
 
+
+def early_stopping(val_losses, patience=5):
+    if len(val_losses) > patience:
+        # Check if the validation loss has not improved for the specified number of epochs
+        recent_losses = val_losses[-patience:]
+        if all(x >= recent_losses[0] for x in recent_losses[1:]):
+            return True
+    return False
 def calculate_accuracy(outputs, masks):
     hard_preds = (outputs > 0.5)
     return (hard_preds == masks).float().mean().item()
