@@ -1,10 +1,10 @@
 # brain_data.yaml
 train: images/train
 val: images/val
-test: images/test
+#test: images/test
 
 # Number of classes (excluding background)
-nc: 2
+nc: 1
 
 # Class names
-names: ['healthy','tumor']
+names: ['tumor']
