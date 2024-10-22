@@ -166,22 +166,6 @@ class BrainData(Dataset):
         else:
             print("No ones found in the mask.")
 
-def create_yolo_compatibel_data():
-    images, annotations, categories=load_coco_annotations('train/_annotations.coco.json')
-     #Fill the mask with the segmentation annotations
-    for ann in annotations:
-        if ann['image_id'] == img_id:
-            if not self.bbox:
-                segmentation = ann['segmentation']
-                for seg in segmentation:
-                    poly = np.array(seg).reshape((len(seg) // 2, 2))
-                    draw.polygon([tuple(p) for p in poly], outline=1, fill=1)
-            else:
-                bbox = ann['bbox']
-                draw.rectangle([bbox[0], bbox[1], bbox[0] + bbox[2], bbox[1] + bbox[3]], outline=1, fill=1)
-
-
-# Load JSON data
 with open('train/_annotations.coco.json', 'r') as f:
     data = json.load(f)
 
