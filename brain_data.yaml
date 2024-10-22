@@ -1,0 +1,10 @@
+# brain_data.yaml
+train: images/train
+val: images/val
+test: images/test
+
+# Number of classes (excluding background)
+nc: 2
+
+# Class names
+names: ['healthy','tumor']
