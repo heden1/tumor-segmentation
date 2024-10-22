@@ -16,7 +16,7 @@ import torch
 from torch.utils.data import Dataset
 
 
-def create_dataloader(resize_size, batch_size=4,transform_mean=[0.485, 0.456, 0.406],transform_std=[0.229, 0.224, 0.225]):
+def create_dataloader(resize_size, batch_size=4,transform_mean=[0.485, 0.456, 0.406],transform_std=[0.229, 0.224, 0.225],bbox_out=False):
 
     # Define transformations
     image_transform = transforms.Compose([
@@ -40,8 +40,8 @@ def create_dataloader(resize_size, batch_size=4,transform_mean=[0.485, 0.456, 0.
 
 
     # Create datasets and dataloaders
-    train_dataset = BrainData(train_images, train_annotations, train_img_dir, image_transform=image_transform,mask_transform=mask_transform) 
-    val_dataset = BrainData(val_images, val_annotations, val_img_dir, image_transform=image_transform,mask_transform=mask_transform)
+    train_dataset = BrainData(train_images, train_annotations, train_img_dir, image_transform=image_transform,mask_transform=mask_transform,bbox_out=bbox_out) 
+    val_dataset = BrainData(val_images, val_annotations, val_img_dir, image_transform=image_transform,mask_transform=mask_transform,bbox_out=bbox_out)
     train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
     val_dataloader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
     return train_dataloader, val_dataloader
@@ -58,12 +58,15 @@ def load_coco_annotations(json_path):
 
 
 class BrainData(Dataset):
-    def __init__(self, images, annotations, img_dir, image_transform=None, mask_transform=None):
+    def __init__(self, images, annotations, img_dir, image_transform=None, mask_transform=None,bbox_out=False):
+        #TOD changs o tit takes only the rezise and flip transfrom... for the mask/bbox 
+
         self.images = images
         self.annotations = annotations
         self.img_dir = img_dir
         self.image_transform = image_transform
         self.mask_transform = mask_transform
+        self.bbox_out = bbox_out
         self.image_ids = list(images.keys())
         
     def __len__(self):
@@ -82,11 +85,16 @@ class BrainData(Dataset):
         # Fill the mask with the segmentation annotations
         for ann in self.annotations:
             if ann['image_id'] == img_id:
-                segmentation = ann['segmentation']
-                for seg in segmentation:
-                    poly = np.array(seg).reshape((len(seg) // 2, 2))
-                    draw.polygon([tuple(p) for p in poly], outline=1, fill=1)
-        
+                if not self.bbox_out:
+                    segmentation = ann['segmentation']
+                    for seg in segmentation:
+                        poly = np.array(seg).reshape((len(seg) // 2, 2))
+                        draw.polygon([tuple(p) for p in poly], outline=1, fill=1)
+                else:
+                    bbox = ann['bbox']
+                    draw.rectangle([bbox[0], bbox[1], bbox[0] + bbox[2], bbox[1] + bbox[3]], outline=1, fill=1)
+            
+            
         # Convert the mask to a NumPy array
         mask = np.array(mask)
         mask[mask > 0] = 255
@@ -94,12 +102,30 @@ class BrainData(Dataset):
         mask = Image.fromarray(mask.astype(np.uint8))
         if self.image_transform:
             image = self.image_transform(image)
+        
+         # Resize bounding box if bbox is True
+        if self.bbox_out:# and self.mask_transform:
+            bbox = self.transform_bbox(bbox, img_info['width'], img_info['height'],image.shape[2],image.shape[1])
+            return image, bbox
+        
         if  self.mask_transform:
             mask = self.mask_transform(mask)
             mask = mask # Remove the channel dimension and convert to long
         mask[mask>0]=1
         return image, mask
     
+    def transform_bbox(self, bbox, org_width, org_height,new_width,new_height):
+
+        x, y, w, h = bbox
+        ratio_x = new_width / org_width
+        ratio_y = new_height / org_height
+        x_min = round(x * ratio_x)
+        y_min = round(y * ratio_y)
+        x_max= round((w+x) * ratio_x)
+        y_max= round((h+y) * ratio_y)
+        return [x_min, y_min, x_max,y_max]
+    
+ 
     
     def get_img_info(self, idx):
         img_id = self.image_ids[idx]
@@ -140,3 +166,35 @@ class BrainData(Dataset):
         else:
             print("No ones found in the mask.")
 
+def create_yolo_compatibel_data():
+    images, annotations, categories=load_coco_annotations('train/_annotations.coco.json')
+     #Fill the mask with the segmentation annotations
+    for ann in annotations:
+        if ann['image_id'] == img_id:
+            if not self.bbox:
+                segmentation = ann['segmentation']
+                for seg in segmentation:
+                    poly = np.array(seg).reshape((len(seg) // 2, 2))
+                    draw.polygon([tuple(p) for p in poly], outline=1, fill=1)
+            else:
+                bbox = ann['bbox']
+                draw.rectangle([bbox[0], bbox[1], bbox[0] + bbox[2], bbox[1] + bbox[3]], outline=1, fill=1)
+
+
+# Load JSON data
+with open('train/_annotations.coco.json', 'r') as f:
+    data = json.load(f)
+
+# Create directories for YOLO format dataset
+if not os.path.exists('labels'):
+    os.makedirs('labels')
+
+# Function to convert bounding boxes to YOLO format
+def convert_bbox_to_yolo(size, bbox):
+    width, height = size
+    xmin, ymin, xmax, ymax = bbox
+    x_center = (xmin + xmax) / 2.0 / width
+    y_center = (ymin + ymax) / 2.0 / height
+    bbox_width = (xmax - xmin) / width
+    bbox_height = (ymax - ymin) / height
+    return x_center, y_center, bbox_width, bbox_height
