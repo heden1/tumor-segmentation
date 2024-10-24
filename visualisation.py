@@ -80,7 +80,7 @@ def get_prediction(model,image,threshold=0.5):
 
 
 
-def plot_segmentation(image, mask, model, threshold=0.5):
+def plot_segmentation(image, mask, model, threshold=0.5,idx=""):
     pred_mask= get_prediction(model,image,threshold)
 
     image = image.squeeze(0).cpu().numpy().transpose(1, 2, 0)
@@ -104,30 +104,36 @@ def plot_segmentation(image, mask, model, threshold=0.5):
     alpha_pred_mask[pred_mask > 0] = 0.5  # Adjust transparency here (0.5 for 50% transparency)
     
     # Plot the original image,
-    
+    fig, axes = plt.subplots(1, 1, figsize=(12, 6))
+    axes.imshow(image,cmap='jet')
+    #axes.title.set_text(f"Input Image {idx}")
+    axes.axis('off')
     # Plot the original image, ground truth mask, and predicted mask
-    fig, axes = plt.subplots(1, 2, figsize=(12, 6))
+    fig, axes = plt.subplots(1, 1, figsize=(12, 6))
+    
     
     # Original image with ground truth mask
-    axes[0].imshow(image)
-    axes[0].imshow(mask, cmap='jet', alpha=alpha_mask)  # Overlay mask with transparency
-    axes[0].set_title("Ground Truth Mask")
-    axes[0].axis('off')
+    #axes[0].imshow(image)
+    #axes[0].imshow(mask, cmap='jet', alpha=alpha_mask)  # Overlay mask with transparency
+    #axes[0].set_title("Ground Truth Mask")
+    #axes[0].axis('off')
     
     # Original image with predicted mask
-    axes[1].imshow(image)
-    axes[1].imshow(pred_mask, cmap='jet', alpha=alpha_pred_mask)  # Overlay mask with transparency
-    axes[1].set_title("Predicted Mask")
-    axes[1].axis('off')
+    axes.imshow(image)
+    axes.imshow(pred_mask, cmap='jet', alpha=alpha_pred_mask)  # Overlay mask with transparency
+    #axes[1].set_title("Predicted Mask")
+    axes.axis('off')
     
     plt.tight_layout()
     plt.show()
 
 def plot_comparison(idx, dataset, model, threshold=0.5):
     """Plot comparison between the ground truth mask and the model's prediction"""
+    device=torch.device("cuda" if torch.cuda.is_available() else ("mps" if torch.backends.mps.is_available() else "cpu"))
+    model.to(device)
     for i in idx:
         image, mask = dataset[i]
-        plot_segmentation(image, mask, model, threshold)
+        plot_segmentation(image, mask, model, threshold,idx=i)
 
 
 
