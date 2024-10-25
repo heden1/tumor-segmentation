@@ -160,3 +160,15 @@ def validate(model, loss_fn, val_loader, device):
 
     return val_loss_cum / len(val_loader) ,val_acc_cum / len(val_loader),val_f1_cum / len(val_loader)
 
+def predict_and_calc_f1(model, data_loader, device):
+    model.eval()
+    f1s = []
+    with torch.no_grad():
+        for images, masks in tqdm(data_loader):
+            images = images.to(device)
+            masks = masks.to(device)
+            outputs = model(images)
+            f1 = calculate_f1(outputs, masks)
+            f1s.append(f1)
+    return f1s
+
