@@ -61,7 +61,7 @@ def save_model_to_file(metrics,  filename):
 
 # Example of creating and initialising model with a previously saved state dict:
 def get_model_and_performance_metrics(filename,model_class):
-    device = torch.device("cuda" if torch.cuda.is_available() else ("mps" if torch.backends.mps.is_available() else "cpu"))
+    device = torch.device("cuda" if torch.cuda.is_available() else ("cpu"))
     checkpoint = torch.load(filename, map_location=device)
     model_class.load_state_dict(checkpoint["model_state_dict"])
     return model_class, checkpoint["train_losses"], checkpoint["train_accs"], checkpoint["val_losses"], checkpoint["val_accs"]
@@ -88,9 +88,10 @@ def plot_segmentation(image, mask, model, threshold=0.5,idx=""):
     pred_mask = pred_mask.squeeze(0).squeeze(0).cpu().numpy()
 
     # Rescale the image to its original range (0, 255)
-    transform_mean = [0.485, 0.456, 0.406]
-    transform_std = [0.229, 0.224, 0.225]
-    image = (image * transform_std + transform_mean) * 255
+    #transform_mean = [0.485, 0.456, 0.406]
+    #transform_std = [0.229, 0.224, 0.225]
+    #image = (image * transform_std + transform_mean) * 255
+    image = image * 255
     image = image.astype(np.uint8)
 
     # Create an alpha channel for the mask
@@ -106,23 +107,23 @@ def plot_segmentation(image, mask, model, threshold=0.5,idx=""):
     # Plot the original image,
     fig, axes = plt.subplots(1, 1, figsize=(12, 6))
     axes.imshow(image,cmap='jet')
-    #axes.title.set_text(f"Input Image {idx}")
+    axes.title.set_text(f"Input Image {idx}")
     axes.axis('off')
     # Plot the original image, ground truth mask, and predicted mask
-    fig, axes = plt.subplots(1, 1, figsize=(12, 6))
+    fig, axes = plt.subplots(1, 2, figsize=(12, 6))
     
     
     # Original image with ground truth mask
-    #axes[0].imshow(image)
-    #axes[0].imshow(mask, cmap='jet', alpha=alpha_mask)  # Overlay mask with transparency
-    #axes[0].set_title("Ground Truth Mask")
-    #axes[0].axis('off')
+    axes[0].imshow(image)
+    axes[0].imshow(mask, cmap='jet', alpha=alpha_mask)  # Overlay mask with transparency
+    axes[0].set_title("Ground Truth Mask")
+    axes[0].axis('off')
     
     # Original image with predicted mask
-    axes.imshow(image)
-    axes.imshow(pred_mask, cmap='jet', alpha=alpha_pred_mask)  # Overlay mask with transparency
-    #axes[1].set_title("Predicted Mask")
-    axes.axis('off')
+    axes[1].imshow(image)
+    axes[1].imshow(pred_mask, cmap='jet', alpha=alpha_pred_mask)  # Overlay mask with transparency
+    axes[1].set_title("Predicted Mask")
+    axes[1].axis('off')
     
     plt.tight_layout()
     plt.show()
