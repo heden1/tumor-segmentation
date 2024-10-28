@@ -1,16 +1,25 @@
 import torch
 from tqdm import tqdm 
 import numpy as np
-from sklearn.metrics import f1_score
+from sklearn.metrics import f1_score, accuracy_score
+from visualisation import save_model_to_file
 
 
 def training_loop(
-    model, optimizer, loss_fn, train_loader, val_loader, num_epochs=10):
+    model, optimizer, loss_fn, train_loader, val_loader, num_epochs=10,warmup_epochs=0):
     print("Starting training")
     device = torch.device("cuda" if torch.cuda.is_available() else ("mps" if torch.backends.mps.is_available() else "cpu"))
     print(f"Training on device {device}")
     model.to(device)
     train_losses, train_accs, val_losses, val_accs ,train_f1s, val_f1s= [], [], [], [], [],[]
+
+    def lambda_lr(epoch):
+        if epoch < warmup_epochs:
+            return ((epoch + 1) / warmup_epochs)**2
+        else:
+            return 1.0
+    scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lambda_lr)
+
     for epoch in range(1,num_epochs+1):
         model, train_loss, train_acc, train_f1 = train_epoch(model,train_loader, loss_fn,optimizer, device)
         val_loss, val_acc,val_f1 = validate(model, loss_fn, val_loader, device)
@@ -33,8 +42,8 @@ def training_loop(
         if early_stopping(val_losses):
             print("Early stopping")
             break
-
-
+        save_model_to_file((model, train_losses, train_f1s, val_losses, val_f1s), "model_during_traning.pth")
+        scheduler.step()
 
     return model, train_losses, train_f1s, val_losses, val_f1s
 
@@ -45,12 +54,8 @@ def train_epoch(model,train_loader, loss_fn,optimizer, device):
         for images, masks in tqdm(train_loader):
             images = images.to(device)
             masks = masks.to(device)
-            #masks[masks>0]=1
-            
-            # Zero the parameter gradients
             optimizer.zero_grad()
             outputs = model(images)#['out']
-        
             # Compute the loss
             loss = loss_fn(outputs, masks)
             epoch_loss += loss.item()
@@ -63,16 +68,21 @@ def train_epoch(model,train_loader, loss_fn,optimizer, device):
         return  model, train_loss_batches, train_acc_batches,train_f1_batches
 
 
-def early_stopping(val_losses, patience=5):
+def early_stopping(val_losses, patience=3):
     if len(val_losses) > patience:
         # Check if the validation loss has not improved for the specified number of epochs
         recent_losses = val_losses[-patience:]
         if all(x >= recent_losses[0] for x in recent_losses[1:]):
             return True
     return False
-def calculate_accuracy(outputs, masks):
-    hard_preds = (outputs > 0.5)
-    return (hard_preds == masks).float().mean().item()
+
+def calculate_accuracy(preds, targets, threshold=0.5):
+    preds = (preds > threshold).float()
+    preds = preds.view(-1).cpu().numpy().astype(int)
+    targets = targets.view(-1).cpu().numpy().astype(int)
+
+    return accuracy_score(targets, preds)
+
 
 def calculate_f1(preds, targets, threshold=0.5):
     """
@@ -100,46 +110,6 @@ def calculate_f1(preds, targets, threshold=0.5):
 
     return f1_score(targets, preds, average='binary')
 
-def calculate_f11(preds, targets, threshold=0.5, epsilon=1e-7):
-    """
-    Calculates the F1 score per batch for an image segmentation task.
-
-    Args:
-        preds (torch.Tensor): The predicted output from the model. Shape: (batch_size, height, width).
-        targets (torch.Tensor): The ground truth labels. Shape: (batch_size, height, width).
-        threshold (float): Threshold to convert logits/probabilities to binary predictions.
-        epsilon (float): Small constant to avoid division by zero.
-
-    Returns:
-        f1_score (float): The F1 score for the batch.
-    """
-    
-    # Convert logits or probabilities to binary predictions (foreground vs background)
-    preds = (preds > threshold).float()
-    
-    # Calculate True Positives, False Positives, False Negatives
-    TP = (preds * targets).sum(dim=(1, 2))  # True Positives per batch
-    FP = (preds * (1 - targets)).sum(dim=(1, 2))  # False Positives per batch
-    FN = ((1 - preds) * targets).sum(dim=(1, 2))  # False Negatives per batch
-
-    # Precision, Recall
-    precision = TP / (TP + FP + epsilon)
-    recall = TP / (TP + FN + epsilon)
-    
-    # F1 Score
-    f1_score = 2 * (precision * recall) / (precision + recall + epsilon)
-    #espilon is to not divide with 0 
-    # Return average F1 score over the batch
-    return f1_score.mean().item()
-
-def calculate_f12(outputs, masks, threshold=0.5):
-    # Apply threshold to convert outputs to binary
-    hard_preds = (torch.sigmoid(outputs) > threshold).cpu().numpy().flatten()
-    masks = masks.cpu().numpy().flatten()
-    print(type(hard_preds))
-    print(type(masks))
-    return f1_score(masks, hard_preds, average='binary')
-
 
 def validate(model, loss_fn, val_loader, device):
     val_loss_cum = 0
@@ -163,12 +133,24 @@ def validate(model, loss_fn, val_loader, device):
 def predict_and_calc_f1(model, data_loader, device):
     model.eval()
     f1s = []
+    accs=[]
+    predictions=[]
+    diff_areas=[]
     with torch.no_grad():
         for images, masks in tqdm(data_loader):
             images = images.to(device)
             masks = masks.to(device)
             outputs = model(images)
+            if outputs.count_nonzero() == 0:
+                predictions.append(0)
+                print("No predictions")
+            else: 
+                predictions.append(1)
+            diff_areas.append(outputs.count_nonzero()/masks.count_nonzero())
+            acc=calculate_accuracy(outputs, masks)
+            accs.append(acc)
             f1 = calculate_f1(outputs, masks)
             f1s.append(f1)
-    return f1s
+    return f1s,accs,predictions,diff_areas
+
 
